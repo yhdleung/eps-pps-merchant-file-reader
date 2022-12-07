@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>EPS PPS Merchant File Reader</title>
+</head>
+
+<body>
+	<style>
+		body {
+			background-color: #F0FFF0
+		}
+
+		table, th, td {
+			border-collapse: collapse;
+			border: 1px solid
+		}
+
+		td {
+			border: 1px solid
+		}
+	</style>
+	<h1>EPS PPS Merchant File Reader</h1>
+	<div id="app">
+		<div>
+			<div>
+				<label for="file-input">Load PPS Merchant File(s) to read the data: </label>
+				<input type="file" id="file-input" multiple @change="readFile($event)" />
+			</div>
+			<div>{{ status }}</div>
+			<hr>
+			<div v-if="appContent.length > 0">
+				<table>
+					<thead>
+						<th>FileName</th>
+						<th>Merchant Header Value Date</th>
+						<th>Merchant Number</th>
+
+						<th>Terminal Header Value Date</th>
+						<th>POS ID</th>
+
+						<th>ISN</th>
+						<th>Input Day</th>
+						<th>Input Time</th>
+						<th>Transaction Amount</th>
+						<th>Bill Account</th>
+						<th>Bill Type</th>
+						<th>Input Date</th>
+
+						<th>Start Input Sequence Number</th>
+						<th>End Input Sequence Number</th>
+						<th>Total Approved Debit Count</th>
+						<th>Total Approved Debit Amount</th>
+						<th>Total Approved PPS Payment Registration Count</th>
+						<th>Total Approved PPS Cancellation of Payment Registration Count</th>
+
+						<th>Terminal Count</th>
+						<th>Total Approved Debit Count</th>
+						<th>Total Approved Debit Amount</th>
+						<th>Total Approved PPS Payment Registration Count</th>
+						<th>Total Approved PPS Cancellation of Payment Registration Count</th>
+					</thead>
+					<tbody>
+						<template v-for="file in appContent">
+							<template v-for="terminal in file.Terminals">
+								<template v-for="detail in terminal.Details">
+									<tr>
+										<td>{{file.FileName}}</td>
+										<td>{{file["Merchant Header Value Date"]}}</td>
+										<td>{{file["Merchant Number"]}}</td>
+										<td>{{terminal["Terminal Header Value Date"]}}</td>
+										<td>{{terminal["POS ID"]}}</td>
+										<td>{{detail["ISN"]}}</td>
+										<td>{{detail["Input Day"]}}</td>
+										<td>{{detail["Input Time"]}}</td>
+										<td>{{detail["Transaction Amount"]}}</td>
+										<td>{{detail["Bill Account"]}}</td>
+										<td>{{detail["Bill Type"]}}</td>
+										<td>{{detail["Input Date"]}}</td>
+										<td>{{terminal["Start Input Sequence Number"]}}</td>
+										<td>{{terminal["End Input Sequence Number"]}}</td>
+										<td>{{terminal["Total Approved Debit Count"]}}</td>
+										<td>{{terminal["Total Approved Debit Amount"]}}</td>
+										<td>{{terminal["Total Approved PPS Payment Registration Count"]}}</td>
+										<td>{{terminal["Total Approved PPS Cancellation of Payment Registration Count"]}}</td>
+										<td>{{file["Terminal Count"]}}</td>
+										<td>{{file["Total Approved Debit Count"]}}</td>
+										<td>{{file["Total Approved Debit Amount"]}}</td>
+										<td>{{file["Total Approved PPS Payment Registration Count"]}}</td>
+										<td>{{file["Total Approved PPS Cancellation of Payment Registration Count"]}}</td>
+									</tr>
+								</template>
+							</template>
+						</template>
+					</tbody>
+				</table>
+				<hr>
+				<pre>{{ appContent }}</pre>
+			</div>
+
+		</div>
+	</div>
+
+	<script type="module">
+		import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
+
+		createApp({
+			setup() {
+				const status = ref('')
+				const appContent = ref([])
+
+				function readFile(evt) {
+					const time = new Date()
+
+					let dataSet = []
+					let myFileList = evt.target.files
+					let myFiles = [...myFileList]
+
+					myFiles.forEach((myFile) => {
+						const promise = new Promise((resolve) => {
+							const reader = new FileReader();
+							if (!myFile.name.includes(".txt")) {
+								status.value = "Only accept .txt files"
+								return;
+							}
+
+							reader.onload = (res) => {
+								let text = res.target.result;
+								resolve(text)
+							};
+							reader.onerror = (err) => console.log(err);
+							reader.readAsText(myFile);
+						})
+
+						promise.then(text => {
+							let ppsFile = {}
+							ppsFile.FileName = myFile.name
+							ppsFile.Terminals = []
+
+							let lines = text.split(/[\r\n]+/g)
+
+							let merchantHeader, merchantTrailer = null
+							let terminalHeader, terminalTrailer, detailLine = null
+
+							while (lines.length > 0) {
+								let line = lines.shift()
+								if (!merchantHeader) {
+									if (merchantHeader = line.match(/^MH(\d{8})(\d{9})/)) {
+										ppsFile["Merchant Header Value Date"] = customFormatDate(merchantHeader[1])
+										ppsFile["Merchant Number"] = merchantHeader[2]
+									}
+								}
+								if (terminalHeader = line.match(/^RH(\d{8})(\d{15})/)) {
+									let terminal = {}
+									let details = []
+									terminal["Terminal Header Value Date"] = customFormatDate(terminalHeader[1])
+									terminal["POS ID"] = terminalHeader[2]
+									while (terminalHeader && lines.length > 0) {
+										line = lines.shift()
+										if (terminalTrailer = line.match(/^RT(\d{6})(\d{6})(\d{6})(\d{11})(\d{6})(\d{6})/)) {
+											if (details.length > 0) {
+												terminal.Details = details
+												terminal["Start Input Sequence Number"] = terminalTrailer[1]
+												terminal["End Input Sequence Number"] = terminalTrailer[2]
+												terminal["Total Approved Debit Count"] = parseInt(terminalTrailer[3])
+												terminal["Total Approved Debit Amount"] = customFormatAmount(terminalTrailer[4])
+												terminal["Total Approved PPS Payment Registration Count"] = parseInt(terminalTrailer[5])
+												terminal["Total Approved PPS Cancellation of Payment Registration Count"] = parseInt(terminalTrailer[6])
+												ppsFile.Terminals.push(terminal)
+											}
+											terminalTrailer = null
+											terminalHeader = null
+										}
+										if (detailLine = line.match(/^D1(\d{6})(\d{2})(\d{4})PPDRA(\d{8})(\d{6,25})\s+(\w{2})(\d{8})0{11}/)) {
+											let detail = {}
+											detail["ISN"] = detailLine[1]
+											detail["Input Day"] = detailLine[2]
+											detail["Input Time"] = detailLine[3].replace(/(\d{2})(\d{2})/, '$1:$2')
+											detail["Transaction Amount"] = customFormatAmount(detailLine[4])
+											detail["Bill Account"] = detailLine[5]
+											detail["Bill Type"] = detailLine[6]
+											detail["Input Date"] = customFormatDate(detailLine[7])
+											details.push(detail)
+										}
+									}
+								}
+								if (merchantTrailer = line.match(/^MT(\d{3})(\d{6})(\d{11})(\d{6})(\d{6})/)) {
+									ppsFile["Terminal Count"] = parseInt(merchantTrailer[1])
+									ppsFile["Total Approved Debit Count"] = parseInt(merchantTrailer[2])
+									ppsFile["Total Approved Debit Amount"] = customFormatAmount(merchantTrailer[3])
+									ppsFile["Total Approved PPS Payment Registration Count"] = parseInt(merchantTrailer[4])
+									ppsFile["Total Approved PPS Cancellation of Payment Registration Count"] = parseInt(merchantTrailer[5])
+									merchantTrailer = null
+									merchantHeader = null
+								}
+							}
+
+							dataSet.push(ppsFile)
+							// appContent.value = dataSet     // Not sure why Vue cannot detect direct assignment
+							appContent.value = [...dataSet]
+							// status.value = ref("Data loaded at " + time.toISOString())
+						})
+
+					});
+				}
+
+				function customFormatDate(str) {
+					return str.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+				}
+
+				function customFormatAmount(str) {
+					return str.replace(/^0*(\d+)(\d{2})/, '$1.$2')
+				}
+
+				return {
+					readFile,
+					status,
+					appContent
+				}
+			},
+		}).mount('#app')
+	</script>
+
+</body>
+
+</html>
