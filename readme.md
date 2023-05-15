@@ -22,7 +22,7 @@ The transformation format is referencing `Appendix B PPS Merchant Reconciliation
 - [x] print data into HTML table
 - [x] load multiple files
 - [x] revise format
-- [ ] export data to CSV/Excel
+- [x] export data to CSV
 
 
 ## License

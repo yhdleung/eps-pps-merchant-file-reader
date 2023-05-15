@@ -11,7 +11,7 @@
 <body>
 	<style>
 		body {
-			background-color: #F0FFF0
+			background-color: #f4fff4
 		}
 
 		table, th, td {
@@ -32,39 +32,15 @@
 			</div>
 			<div>{{ status }}</div>
 			<hr>
-			<div v-if="appContent.length > 0">
+			<div v-if="dataSet.length > 0">
 				<table>
 					<thead>
-						<th>FileName</th>
-						<th>Merchant Header Value Date</th>
-						<th>Merchant Number</th>
-
-						<th>Terminal Header Value Date</th>
-						<th>POS ID</th>
-
-						<th>ISN</th>
-						<th>Input Day</th>
-						<th>Input Time</th>
-						<th>Transaction Amount</th>
-						<th>Bill Account</th>
-						<th>Bill Type</th>
-						<th>Input Date</th>
-
-						<th>Start Input Sequence Number</th>
-						<th>End Input Sequence Number</th>
-						<th>Total Approved Debit Count</th>
-						<th>Total Approved Debit Amount</th>
-						<th>Total Approved PPS Payment Registration Count</th>
-						<th>Total Approved PPS Cancellation of Payment Registration Count</th>
-
-						<th>Terminal Count</th>
-						<th>Total Approved Debit Count</th>
-						<th>Total Approved Debit Amount</th>
-						<th>Total Approved PPS Payment Registration Count</th>
-						<th>Total Approved PPS Cancellation of Payment Registration Count</th>
+						<template v-for="header in headers">
+							<th>{{header}}</th>
+						</template>
 					</thead>
 					<tbody>
-						<template v-for="file in appContent">
+						<template v-for="file in dataSet">
 							<template v-for="terminal in file.Terminals">
 								<template v-for="detail in terminal.Details">
 									<tr>
@@ -98,7 +74,9 @@
 					</tbody>
 				</table>
 				<hr>
-				<pre>{{ appContent }}</pre>
+				<div>
+					<button @click="downloadCsv">Download CSV</button>
+				</div>
 			</div>
 
 		</div>
@@ -110,12 +88,36 @@
 		createApp({
 			setup() {
 				const status = ref('')
-				const appContent = ref([])
+				const dataSet = ref([])
+				const headers = [
+					"FileName", 
+					"Merchant Header Value Date", 
+					"Merchant Number",
+					"Terminal Header Value Date",
+					"POS ID",
+					"ISN",
+					"Input Day",
+					"Input Time",
+					"Transaction Amount",
+					"Bill Account",
+					"Bill Type",
+					"Input Date",
+					"Start Input Sequence Number",
+					"End Input Sequence Number",
+					"Total Approved Debit Count",
+					"Total Approved Debit Amount",
+					"Total Approved PPS Payment Registration Count",
+					"Total Approved PPS Cancellation of Payment Registration Count",
+					"Terminal Count",
+					"Total Approved Debit Count",
+					"Total Approved Debit Amount",
+					"Total Approved PPS Payment Registration Count",
+					"Total Approved PPS Cancellation of Payment Registration Count",
+				]
 
 				function readFile(evt) {
 					const time = new Date()
 
-					let dataSet = []
 					let myFileList = evt.target.files
 					let myFiles = [...myFileList]
 
@@ -198,10 +200,8 @@
 								}
 							}
 
-							dataSet.push(ppsFile)
-							// appContent.value = dataSet     // Not sure why Vue cannot detect direct assignment
-							appContent.value = [...dataSet]
-							// status.value = ref("Data loaded at " + time.toISOString())
+							dataSet.value.push(ppsFile)
+							status.value = ref("Data loaded at " + time.toLocaleTimeString())
 						})
 
 					});
@@ -215,10 +215,66 @@
 					return str.replace(/^0*(\d+)(\d{2})/, '$1.$2')
 				}
 
+				const downloadCsv = () => {
+					const csvMeta = "data:text/csv;charset=utf-8,"
+					let csvRows = [];
+
+					for (let file of dataSet.value) {
+						for (let terminal of file.Terminals) {
+							for (let detail of terminal.Details) {
+								let row = [
+									file.FileName,
+									file["Merchant Header Value Date"],
+									file["Merchant Number"],
+									terminal["Terminal Header Value Date"],
+									terminal["POS ID"],
+									detail["ISN"],
+									detail["Input Day"],
+									detail["Input Time"],
+									detail["Transaction Amount"],
+									detail["Bill Account"],
+									detail["Bill Type"],
+									detail["Input Date"],
+									terminal["Start Input Sequence Number"],
+									terminal["End Input Sequence Number"],
+									terminal["Total Approved Debit Count"],
+									terminal["Total Approved Debit Amount"],
+									terminal["Total Approved PPS Payment Registration Count"],
+									terminal["Total Approved PPS Cancellation of Payment Registration Count"],
+									file["Terminal Count"],
+									file["Total Approved Debit Count"],
+									file["Total Approved Debit Amount"],
+									file["Total Approved PPS Payment Registration Count"],
+									file["Total Approved PPS Cancellation of Payment Registration Count"],
+								]
+								csvRows.push(row);
+							}
+						}
+					}
+
+					// Create the CSV string
+					let csvString = '';
+					csvString += `"${headers.join('","')}"\n`;
+					csvRows.forEach(row => {
+						const quotedRow = row.map(e => `"${e}"`);
+						csvString += quotedRow.join(',') + '\n';
+					})
+
+
+					const encodedUri = encodeURI(csvMeta + csvString);
+					const link = document.createElement("a");
+					link.setAttribute("href", encodedUri);
+					link.setAttribute("download", "dataset.csv");
+					document.body.appendChild(link);
+					link.click();
+				};
+
 				return {
 					readFile,
 					status,
-					appContent
+					dataSet, 
+					headers,
+					downloadCsv,
 				}
 			},
 		}).mount('#app')
