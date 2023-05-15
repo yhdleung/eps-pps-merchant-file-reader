@@ -33,11 +33,13 @@
 			<div>{{ status }}</div>
 			<hr>
 			<div v-if="dataSet.length > 0">
-				<table>
+				<table id="data-table">
 					<thead>
-						<template v-for="header in headers">
-							<th>{{header}}</th>
-						</template>
+						<tr>
+							<template v-for="header in headers">
+								<th>{{header}}</th>
+							</template>
+						</tr>
 					</thead>
 					<tbody>
 						<template v-for="file in dataSet">
@@ -76,6 +78,10 @@
 				<hr>
 				<div>
 					<button @click="downloadCsv">Download CSV</button>
+				</div>
+				<br>
+				<div>
+					<button @click="copyToClipboard">Copy to Clipboard</button>
 				</div>
 			</div>
 
@@ -260,7 +266,6 @@
 						csvString += quotedRow.join(',') + '\n';
 					})
 
-
 					const encodedUri = encodeURI(csvMeta + csvString);
 					const link = document.createElement("a");
 					link.setAttribute("href", encodedUri);
@@ -269,12 +274,22 @@
 					link.click();
 				};
 
+				const copyToClipboard = () => {
+					const el = document.createElement('textarea');
+					el.value = document.getElementById('data-table').innerText
+					document.body.appendChild(el);
+					el.select();
+					document.execCommand('copy');
+					document.body.removeChild(el);
+				};
+
 				return {
 					readFile,
 					status,
 					dataSet, 
 					headers,
 					downloadCsv,
+					copyToClipboard,
 				}
 			},
 		}).mount('#app')
